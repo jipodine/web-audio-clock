@@ -10,6 +10,23 @@ audio.dBToLin = function(dBValue) {
   return Math.pow(10, dBValue / 20);
 };
 
+audio.minPowerOfTwo = function(value, bitMax = 16, precision = 1e-5) {
+  let power = 0;
+  let bit = 0;
+
+  let v = Math.abs(value);
+  if(v > precision
+     && Math.abs(v - Math.round(v)) < precision) {
+    power = 1;
+    v = Math.round(v) * 0.5;
+    while(v % 1 < precision && bit < bitMax) {
+      power *= 2;
+      ++ bit;
+      v *= 0.5;
+    }
+  }
+  return [power, bit];
+};
 
 let generateClickBuffer = function() {
   const length = 2;

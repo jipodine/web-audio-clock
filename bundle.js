@@ -510,8 +510,28 @@ audio.getTime = function () {
   return audio.context.currentTime;
 };
 
-var dBToLin = function dBToLin(dBValue) {
+audio.dBToLin = function (dBValue) {
   return Math.pow(10, dBValue / 20);
+};
+
+audio.minPowerOfTwo = function (value) {
+  var bitMax = arguments[1] === undefined ? 16 : arguments[1];
+  var precision = arguments[2] === undefined ? 0.00001 : arguments[2];
+
+  var power = 0;
+  var bit = 0;
+
+  var v = Math.abs(value);
+  if (v > precision && Math.abs(v - Math.round(v)) < precision) {
+    power = 1;
+    v = Math.round(v) * 0.5;
+    while (v % 1 < precision && bit < bitMax) {
+      power *= 2;
+      ++bit;
+      v *= 0.5;
+    }
+  }
+  return [power, bit];
 };
 
 var generateClickBuffer = function generateClickBuffer() {
@@ -522,7 +542,7 @@ var generateClickBuffer = function generateClickBuffer() {
   var buffer = audio.context.createBuffer(channels, length, audio.context.sampleRate);
   var data = buffer.getChannelData(0);
 
-  var amplitude = dBToLin(gain);
+  var amplitude = audio.dBToLin(gain);
   data[0] = amplitude;
   data[1] = -amplitude;
 
@@ -534,7 +554,7 @@ var generateNoiseBuffer = function generateNoiseBuffer() {
   var gain = -30; // dB
 
   var length = duration * audio.context.sampleRate;
-  var amplitude = dBToLin(gain);
+  var amplitude = audio.dBToLin(gain);
   var channelCount = audio.context.destination.channelCount;
   var buffer = audio.context.createBuffer(channelCount, length, audio.context.sampleRate);
   for (var c = 0; c < channelCount; ++c) {
@@ -682,25 +702,37 @@ app.Measure = (function () {
           audio.time = _ref2[0];
           audio.delta = _ref2[1];
 
+          audio.deltaSamples = audio.delta * app.audio.context.sampleRate;
+
+          var _ref3 = app.audio.minPowerOfTwo(audio.deltaSamples);
+
+          var _ref32 = _slicedToArray(_ref3, 1);
+
+          audio.deltaSamplesPow2 = _ref32[0];
+
           var frame = {};
 
-          var _ref3 = this.frameDelta.getTimeDelta(frameTime * 0.001);
-
-          var _ref32 = _slicedToArray(_ref3, 2);
-
-          frame.time = _ref32[0];
-          frame.delta = _ref32[1];
-
-          var perf = {};
-
-          var _ref4 = this.perfDelta.getTimeDelta(app.clock.getPerformanceTime());
+          var _ref4 = this.frameDelta.getTimeDelta(frameTime * 0.001);
 
           var _ref42 = _slicedToArray(_ref4, 2);
 
-          perf.time = _ref42[0];
-          perf.delta = _ref42[1];
+          frame.time = _ref42[0];
+          frame.delta = _ref42[1];
 
-          this.display += "++++++++++ " + this.count + " ++++++++++" + "<br>" + "Audio: " + audio.time + "; ∆ = " + audio.delta + " (" + audio.delta * app.audio.context.sampleRate + ")" + "<br>" + "Frame: " + frame.time + "; ∆ = " + frame.delta + " (" + frame.delta * app.audio.context.sampleRate + ")" + "<br>" + "Perf.: " + perf.time + "; ∆ = " + perf.delta + " (" + perf.delta * app.audio.context.sampleRate + ")" + "<br>" + "<br>";
+          if (frame.time === 0) {
+            frame.delta = 0;
+          }
+
+          var perf = {};
+
+          var _ref5 = this.perfDelta.getTimeDelta(app.clock.getPerformanceTime());
+
+          var _ref52 = _slicedToArray(_ref5, 2);
+
+          perf.time = _ref52[0];
+          perf.delta = _ref52[1];
+
+          this.display += "++++++++++ " + this.count + " ++++++++++" + "<br>" + "Audio: " + audio.time + "; ∆ = " + audio.delta + " (" + audio.deltaSamples + " -> " + audio.deltaSamplesPow2 + ")" + "<br>" + "Frame: " + frame.time + "; ∆ = " + frame.delta + " (" + frame.delta * app.audio.context.sampleRate + ")" + "<br>" + "Perf.: " + perf.time + "; ∆ = " + perf.delta + " (" + perf.delta * app.audio.context.sampleRate + ")" + "<br>" + "<br>";
 
           if (this.request) {
             this.request(function (frameTime) {
@@ -708,7 +740,7 @@ app.Measure = (function () {
             });
           }
         } else {
-          document.querySelector("#measure").innerHTML = this.display;
+          document.querySelector("#measure").innerHTML = "∆ = seconds (samples -> buffer size)" + "<br><br>" + this.display;
         }
       }
     }
@@ -731,6 +763,8 @@ app.displayAudioTime = function (frameTime) {
 
 app.init = function () {
   app.audio.init();
+
+  document.querySelector("#sample-rate").innerHTML = "Audio sample-rate: " + app.audio.context.sampleRate + " Hz";
 
   document.querySelector("#active-raf").onclick = function () {
     app.audio.triggerSound(app.audio.noiseBuffer);

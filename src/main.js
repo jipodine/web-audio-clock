@@ -29,9 +29,15 @@ app.Measure = class {
       [audio.time, audio.delta]
         = this.audioDelta.getTimeDelta(app.audio.context.currentTime);
 
+      audio.deltaSamples = audio.delta * app.audio.context.sampleRate;
+      [audio.deltaSamplesPow2, ] = app.audio.minPowerOfTwo(audio.deltaSamples);
+
       let frame = {};
       [frame.time, frame.delta]
         = this.frameDelta.getTimeDelta(frameTime * 1e-3);
+      if(frame.time === 0) {
+        frame.delta = 0;
+      }
 
       let perf = {};
       [perf.time, perf.delta]
@@ -41,7 +47,8 @@ app.Measure = class {
         += '++++++++++ ' + this.count + ' ++++++++++' + '<br>'
         + 'Audio: ' + audio.time
         + '; ∆ = ' + audio.delta
-        + ' (' + (audio.delta * app.audio.context.sampleRate) + ')' + '<br>'
+        + ' (' + audio.deltaSamples
+        + ' -> ' + audio.deltaSamplesPow2 + ')' + '<br>'
         + 'Frame: ' + frame.time
         + '; ∆ = ' + frame.delta
         + ' (' + (frame.delta * app.audio.context.sampleRate) + ')' + '<br>'
@@ -54,7 +61,9 @@ app.Measure = class {
         this.request( (frameTime) => { this.pick(frameTime); } );
       }
     } else {
-      document.querySelector('#measure').innerHTML = this.display;
+      document.querySelector('#measure').innerHTML =
+        '∆ = seconds (samples -> buffer size)' + '<br><br>'
+        + this.display;
     }
   }
 
@@ -82,6 +91,10 @@ app.displayAudioTime = function(frameTime) {
 app.init = function() {
   app.audio.init();
 
+  document.querySelector('#sample-rate')
+    .innerHTML = 'Audio sample-rate: '
+    + app.audio.context.sampleRate + ' Hz';
+
   document.querySelector('#active-raf')
     .onclick = function() {
       app.audio.triggerSound(app.audio.noiseBuffer);
@@ -104,11 +117,11 @@ app.init = function() {
       document.querySelector('#measure').innerHTML = app.measure.display;
     };
 
-};  
+};
 
 window.addEventListener('DOMContentLoaded', function() {
   app.init();
-  
+
   requestAnimationFrame(app.displayAudioTime);
 });
 
