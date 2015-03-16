@@ -666,6 +666,7 @@ app.Measure = (function () {
     // this.request = null;
     this.count = 0;
     this.display = "";
+    this.dateDelta = new app.clock.TimeDelta();
     this.audioDelta = new app.clock.TimeDelta();
     this.frameDelta = new app.clock.TimeDelta();
     this.perfDelta = new app.clock.TimeDelta();
@@ -693,31 +694,40 @@ app.Measure = (function () {
         var frameTime = arguments[0] === undefined ? 0 : arguments[0];
 
         if (this.count-- > 0) {
-          var audio = {};
+          var date = {};
 
-          var _ref = this.audioDelta.getTimeDelta(app.audio.context.currentTime);
+          var _ref = this.dateDelta.getTimeDelta(Date.now() * 0.001);
 
           var _ref2 = _slicedToArray(_ref, 2);
 
-          audio.time = _ref2[0];
-          audio.delta = _ref2[1];
+          date.time = _ref2[0];
+          date.delta = _ref2[1];
+
+          var audio = {};
+
+          var _ref3 = this.audioDelta.getTimeDelta(app.audio.context.currentTime);
+
+          var _ref32 = _slicedToArray(_ref3, 2);
+
+          audio.time = _ref32[0];
+          audio.delta = _ref32[1];
 
           audio.deltaSamples = audio.delta * app.audio.context.sampleRate;
 
-          var _ref3 = app.audio.minPowerOfTwo(audio.deltaSamples);
+          var _ref4 = app.audio.minPowerOfTwo(audio.deltaSamples);
 
-          var _ref32 = _slicedToArray(_ref3, 1);
+          var _ref42 = _slicedToArray(_ref4, 1);
 
-          audio.deltaSamplesPow2 = _ref32[0];
+          audio.deltaSamplesPow2 = _ref42[0];
 
           var frame = {};
 
-          var _ref4 = this.frameDelta.getTimeDelta(frameTime * 0.001);
+          var _ref5 = this.frameDelta.getTimeDelta(frameTime * 0.001);
 
-          var _ref42 = _slicedToArray(_ref4, 2);
+          var _ref52 = _slicedToArray(_ref5, 2);
 
-          frame.time = _ref42[0];
-          frame.delta = _ref42[1];
+          frame.time = _ref52[0];
+          frame.delta = _ref52[1];
 
           if (frame.time === 0) {
             frame.delta = 0;
@@ -725,14 +735,14 @@ app.Measure = (function () {
 
           var perf = {};
 
-          var _ref5 = this.perfDelta.getTimeDelta(app.clock.getPerformanceTime());
+          var _ref6 = this.perfDelta.getTimeDelta(app.clock.getPerformanceTime());
 
-          var _ref52 = _slicedToArray(_ref5, 2);
+          var _ref62 = _slicedToArray(_ref6, 2);
 
-          perf.time = _ref52[0];
-          perf.delta = _ref52[1];
+          perf.time = _ref62[0];
+          perf.delta = _ref62[1];
 
-          this.display += "++++++++++ " + this.count + " ++++++++++" + "<br>" + "Audio: " + audio.time + "; ∆ = " + audio.delta + " (" + audio.deltaSamples + " -> " + audio.deltaSamplesPow2 + ")" + "<br>" + "Frame: " + frame.time + "; ∆ = " + frame.delta + " (" + frame.delta * app.audio.context.sampleRate + ")" + "<br>" + "Perf.: " + perf.time + "; ∆ = " + perf.delta + " (" + perf.delta * app.audio.context.sampleRate + ")" + "<br>" + "<br>";
+          this.display += "++++++++++ " + this.count + " ++++++++++" + "<br>" + "Date: " + date.time + "; ∆ = " + date.delta + " (" + date.delta * app.audio.context.sampleRate + ")" + "<br>" + "Audio: " + audio.time + "; ∆ = " + audio.delta + " (" + audio.deltaSamples + " -> " + audio.deltaSamplesPow2 + ")" + "<br>" + "Frame: " + frame.time + "; ∆ = " + frame.delta + " (" + frame.delta * app.audio.context.sampleRate + ")" + "<br>" + "Perf.: " + perf.time + "; ∆ = " + perf.delta + " (" + perf.delta * app.audio.context.sampleRate + ")" + "<br>" + "<br>";
 
           if (this.request) {
             this.request(function (frameTime) {
@@ -762,6 +772,8 @@ app.displayAudioTime = function (frameTime) {
 };
 
 app.init = function () {
+  document.querySelector("#time-started").innerHTML = "Loaded " + new Date().toString();
+
   app.audio.init();
 
   document.querySelector("#sample-rate").innerHTML = "Audio sample-rate: " + app.audio.context.sampleRate + " Hz";

@@ -9,6 +9,7 @@ app.Measure = class {
     // this.request = null;
     this.count = 0;
     this.display = '';
+    this.dateDelta = new app.clock.TimeDelta();
     this.audioDelta = new app.clock.TimeDelta();
     this.frameDelta = new app.clock.TimeDelta();
     this.perfDelta = new app.clock.TimeDelta();
@@ -25,6 +26,10 @@ app.Measure = class {
 
   pick(frameTime = 0) {
     if(this.count -- > 0) {
+      let date = {};
+      [date.time, date.delta]
+        = this.dateDelta.getTimeDelta(Date.now() * 1e-3);
+
       let audio = {};
       [audio.time, audio.delta]
         = this.audioDelta.getTimeDelta(app.audio.context.currentTime);
@@ -45,6 +50,9 @@ app.Measure = class {
 
       this.display
         += '++++++++++ ' + this.count + ' ++++++++++' + '<br>'
+        + 'Date: ' + date.time
+        + '; ∆ = ' + date.delta
+        + ' (' + (date.delta * app.audio.context.sampleRate) + ')' + '<br>'
         + 'Audio: ' + audio.time
         + '; ∆ = ' + audio.delta
         + ' (' + audio.deltaSamples
@@ -89,6 +97,9 @@ app.displayAudioTime = function(frameTime) {
 
 
 app.init = function() {
+  document.querySelector('#time-started')
+    .innerHTML = 'Loaded ' + new Date().toString();
+
   app.audio.init();
 
   document.querySelector('#sample-rate')
