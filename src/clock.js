@@ -26,7 +26,7 @@ clock.TimeDelta  = class {
   getTimeDelta(time) {
     const delta = time - this.last;
     this.last = time;
-    return [time, delta];
+    return [delta, time];
   }
 };
 

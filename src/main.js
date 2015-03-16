@@ -27,25 +27,25 @@ app.Measure = class {
   pick(frameTime = 0) {
     if(this.count -- > 0) {
       let date = {};
-      [date.time, date.delta]
+      [date.delta, data.time]
         = this.dateDelta.getTimeDelta(Date.now() * 1e-3);
 
       let audio = {};
-      [audio.time, audio.delta]
+      [audio.delta, audio.time]
         = this.audioDelta.getTimeDelta(app.audio.context.currentTime);
 
       audio.deltaSamples = audio.delta * app.audio.context.sampleRate;
       [audio.deltaSamplesPow2, ] = app.audio.minPowerOfTwo(audio.deltaSamples);
 
       let frame = {};
-      [frame.time, frame.delta]
+      [frame.delta, frame.time]
         = this.frameDelta.getTimeDelta(frameTime * 1e-3);
       if(frame.time === 0) {
         frame.delta = 0;
       }
 
       let perf = {};
-      [perf.time, perf.delta]
+      [perf.delta, perf.time]
         = this.perfDelta.getTimeDelta(app.clock.getPerformanceTime() );
 
       this.display
