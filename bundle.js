@@ -630,7 +630,7 @@ clock.TimeDelta = (function () {
       value: function getTimeDelta(time) {
         var delta = time - this.last;
         this.last = time;
-        return [time, delta];
+        return [delta, time];
       }
     }
   });
@@ -700,8 +700,8 @@ app.Measure = (function () {
 
           var _ref2 = _slicedToArray(_ref, 2);
 
-          date.time = _ref2[0];
-          date.delta = _ref2[1];
+          date.delta = _ref2[0];
+          date.time = _ref2[1];
 
           var audio = {};
 
@@ -709,8 +709,8 @@ app.Measure = (function () {
 
           var _ref32 = _slicedToArray(_ref3, 2);
 
-          audio.time = _ref32[0];
-          audio.delta = _ref32[1];
+          audio.delta = _ref32[0];
+          audio.time = _ref32[1];
 
           audio.deltaSamples = audio.delta * app.audio.context.sampleRate;
 
@@ -726,8 +726,8 @@ app.Measure = (function () {
 
           var _ref52 = _slicedToArray(_ref5, 2);
 
-          frame.time = _ref52[0];
-          frame.delta = _ref52[1];
+          frame.delta = _ref52[0];
+          frame.time = _ref52[1];
 
           if (frame.time === 0) {
             frame.delta = 0;
@@ -739,8 +739,8 @@ app.Measure = (function () {
 
           var _ref62 = _slicedToArray(_ref6, 2);
 
-          perf.time = _ref62[0];
-          perf.delta = _ref62[1];
+          perf.delta = _ref62[0];
+          perf.time = _ref62[1];
 
           this.display += "++++++++++ " + this.count + " ++++++++++" + "<br>" + "Date: " + date.time + "; ∆ = " + date.delta + " (" + date.delta * app.audio.context.sampleRate + ")" + "<br>" + "Audio: " + audio.time + "; ∆ = " + audio.delta + " (" + audio.deltaSamples + " -> " + audio.deltaSamplesPow2 + ")" + "<br>" + "Frame: " + frame.time + "; ∆ = " + frame.delta + " (" + frame.delta * app.audio.context.sampleRate + ")" + "<br>" + "Perf.: " + perf.time + "; ∆ = " + perf.delta + " (" + perf.delta * app.audio.context.sampleRate + ")" + "<br>" + "<br>";
 
@@ -762,6 +762,9 @@ app.Measure = (function () {
 app.measure = new app.Measure();
 
 app.displayAudioTime = function (frameTime) {
+  var d = new Date();
+  document.querySelector("#date-time").innerHTML = "Date: " + new Date().toString() + " (" + d.getTime() + ")";
+
   document.querySelector("#audio-time").innerHTML = "Audio: " + app.clock.timeString(app.audio.context.currentTime);
 
   document.querySelector("#frame-time").innerHTML = "Frame: " + app.clock.timeString(frameTime * 0.001);

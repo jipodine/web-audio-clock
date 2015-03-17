@@ -27,7 +27,7 @@ app.Measure = class {
   pick(frameTime = 0) {
     if(this.count -- > 0) {
       let date = {};
-      [date.delta, data.time]
+      [date.delta, date.time]
         = this.dateDelta.getTimeDelta(Date.now() * 1e-3);
 
       let audio = {};
@@ -80,6 +80,11 @@ app.Measure = class {
 app.measure = new app.Measure();
 
 app.displayAudioTime = function(frameTime) {
+  const d = new Date();
+    document.querySelector('#date-time')
+    .innerHTML = 'Date: ' + new Date().toString()
+    + ' (' +  d.getTime() + ')';
+
   document.querySelector('#audio-time')
     .innerHTML = 'Audio: '
     + app.clock.timeString(app.audio.context.currentTime);
