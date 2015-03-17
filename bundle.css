@@ -3,3 +3,7 @@ body {
     margin: 20px;
     position: relative;
 }
+
+input {
+    font-size: large;
+}
