@@ -1,5 +1,7 @@
 /*global performance */
 
+'use strict';
+
 let clock = {};
 
 clock.splitTime = function (time) {
@@ -16,10 +18,10 @@ clock.timeString = function (time) {
   return t[0] + '° : '
     + t[1] + "' : "
     + t[2] + '" : '
-    + t[3].toFixed(3).replace('0.','');
+    + t[3].toFixed(3).replace('0.', '');
 };
 
-clock.TimeDelta  = class {
+clock.TimeDelta = class {
   constructor() {
     this.last = 0;
   }

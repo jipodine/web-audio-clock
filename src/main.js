@@ -1,3 +1,5 @@
+'use strict';
+
 let app = window.app || {};
 
 const debug = require('debug')('web-audio-clock');
@@ -83,7 +85,7 @@ app.displayAudioTime = function(frameTime) {
   const d = new Date();
     document.querySelector('#date-time')
     .innerHTML = 'Date: ' + new Date().toString()
-    + ' (' +  d.getTime() + ')';
+    + ' (' + d.getTime() + ')';
 
   document.querySelector('#audio-time')
     .innerHTML = 'Audio: '

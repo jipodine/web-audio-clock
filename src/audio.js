@@ -1,5 +1,7 @@
 /*global AudioContext */
 
+'use strict';
+
 let audio = {};
 
 audio.getTime = function () {
@@ -21,7 +23,7 @@ audio.minPowerOfTwo = function(value, bitMax = 16, precision = 1e-5) {
     v = Math.round(v) * 0.5;
     while(v % 1 < precision && bit < bitMax) {
       power *= 2;
-      ++ bit;
+      ++bit;
       v *= 0.5;
     }
   }
@@ -39,7 +41,7 @@ let generateClickBuffer = function() {
 
   const amplitude = audio.dBToLin(gain);
   data[0] = amplitude;
-  data[1] = (- amplitude);
+  data[1] = -amplitude;
 
   return buffer;
 };
@@ -47,7 +49,7 @@ let generateClickBuffer = function() {
 const generateNoiseBuffer = function () {
   const duration = 0.2; // second
   const gain = -30; // dB
-  
+
   const length = duration * audio.context.sampleRate;
   const amplitude = audio.dBToLin(gain);
   const channelCount = audio.context.destination.channelCount;
@@ -73,7 +75,7 @@ audio.triggerSound = function(buffer) {
 
 audio.started = false;
 audio.init = function () {
-  if (! audio.started
+  if (!audio.started
       && typeof audio.context !== 'undefined') {
     return;
   }

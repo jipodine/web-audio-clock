@@ -502,8 +502,6 @@ function plural(ms, n, name) {
 },{}],4:[function(require,module,exports){
 "use strict";
 
-/*global AudioContext */
-
 var audio = {};
 
 audio.getTime = function () {
@@ -593,6 +591,7 @@ audio.init = function () {
 };
 
 module.exports = exports = audio;
+/*global AudioContext */
 
 },{}],5:[function(require,module,exports){
 "use strict";
@@ -600,8 +599,6 @@ module.exports = exports = audio;
 var _createClass = (function () { function defineProperties(target, props) { for (var key in props) { var prop = props[key]; prop.configurable = true; if (prop.value) prop.writable = true; } Object.defineProperties(target, props); } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
 var _classCallCheck = function (instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } };
-
-/*global performance */
 
 var clock = {};
 
@@ -643,6 +640,7 @@ clock.getPerformanceTime = function () {
 };
 
 module.exports = exports = clock;
+/*global performance */
 
 },{}],6:[function(require,module,exports){
 "use strict";
