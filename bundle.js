@@ -615,7 +615,7 @@ clock.splitTime = function (time) {
 
 clock.timeString = function (time) {
   var t = clock.splitTime(time);
-  return t[0] + "° : " + t[1] + "' : " + t[2] + "\" : " + t[3];
+  return t[0] + "° : " + t[1] + "' : " + t[2] + "\" : " + t[3].toFixed(3).replace("0.", "");
 };
 
 clock.TimeDelta = (function () {
