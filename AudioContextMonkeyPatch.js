@@ -91,27 +91,14 @@ BiquadFilterNode.type and OscillatorNode.type.
       if (!node.start) {
         node.start = function ( when, offset, duration ) {
           if ( offset || duration )
-            this.noteGrainOn( when || 0, offset, duration );
+            this.noteOn( when || 0, offset, duration );
           else
             this.noteOn( when || 0 );
-        };
-      } else {
-        node.internal_start = node.start;
-        node.start = function( when, offset, duration ) {
-          if( typeof duration !== 'undefined' )
-            node.internal_start( when || 0, offset, duration );
-          else
-            node.internal_start( when || 0, offset );     
         };
       }
       if (!node.stop) {
         node.stop = function ( when ) {
           this.noteOff( when || 0 );
-        };
-      } else {
-        node.internal_stop = node.stop;
-        node.stop = function( when ) {
-          node.internal_stop( when || 0 );
         };
       }
       fixSetTarget(node.playbackRate);
@@ -148,24 +135,15 @@ BiquadFilterNode.type and OscillatorNode.type.
           node.start = function ( when ) {
             this.noteOn( when || 0 );
           };
-        } else {
-          node.internal_start = node.start;
-          node.start = function ( when ) {
-            node.internal_start( when || 0);
-          };
         }
         if (!node.stop) {
           node.stop = function ( when ) {
             this.noteOff( when || 0 );
           };
-        } else {
-          node.internal_stop = node.stop;
-          node.stop = function( when ) {
-            node.internal_stop( when || 0 );
-          };
         }
-        if (!node.setPeriodicWave)
+        if (!node.setPeriodicWave) {
           node.setPeriodicWave = node.setWaveTable;
+        }
         fixSetTarget(node.frequency);
         fixSetTarget(node.detune);
         return node;
