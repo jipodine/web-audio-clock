@@ -1,31 +1,33 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8" />
-  <title>Web Audio Clock</title>
-  <link rel="stylesheet" type="text/css" href="bundle.css">
-</head>
-<body>
-  <div id="time-started"></div>
+  <head>
+    <meta charset="utf-8" />
+    <title>Web Audio Clock</title>
+    <link rel="stylesheet" type="text/css" href="bundle.css">
+  </head>
+  <body>
+    <div id="time-started"></div>
 
-  <p><input id="active-raf" type="button"
-            value="Measure with requestAnimationFrame">
-    <input id="active-timeout" type="button"
-           value="Measure with setTimeout">
-    <input id="active-once" type="button"
-           value="Measure once">
-  </p>
+    <p><input id="active-raf" type="button"
+              value="Measure with requestAnimationFrame">
+      <input id="active-timeout" type="button"
+             value="Measure with setTimeout">
+      <input id="active-once" type="button"
+             value="Measure once">
+    </p>
 
-  <div id="sample-rate"></div>
+    <div id="sample-rate"></div>
+    <div id="output-latency"></div>
+    <div id="base-latency"></div>
 
-  <div id="date-time"></div>
-  <div id="audio-time"></div>
-  <div id="frame-time"></div>
-  <div id="performance-time"></div>
+    <div id="date-time"></div>
+    <div id="audio-time"></div>
+    <div id="frame-time"></div>
+    <div id="performance-time"></div>
 
-  <p id="measure"></p>
+    <p id="measure"></p>
 
-  <script src="AudioContextMonkeyPatch.js"></script>
-  <script src="bundle.js"></script>
-</body>
+    <script src="AudioContextMonkeyPatch.js"></script>
+    <script src="bundle.js"></script>
+  </body>
 </html>

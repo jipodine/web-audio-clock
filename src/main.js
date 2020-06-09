@@ -12,7 +12,10 @@ app.Measure = class {
     this.count = 0;
     this.display = '';
     this.dateDelta = new app.clock.TimeDelta();
-    this.audioDelta = new app.clock.TimeDelta();
+    this.audioBaseLatencyDelta = new app.clock.TimeDelta();
+    this.audioOutputLatencyDelta = new app.clock.TimeDelta();
+    this.audioTimeDelta = new app.clock.TimeDelta();
+    this.audioStampDelta = new app.clock.TimeDelta();
     this.frameDelta = new app.clock.TimeDelta();
     this.perfDelta = new app.clock.TimeDelta();
   }
@@ -28,41 +31,108 @@ app.Measure = class {
 
   pick(frameTime = 0) {
     if(this.count -- > 0) {
-      let date = {};
+
+      this.display += '++++++++++ ' + this.count + ' ++++++++++' + '<br>';
+      const date = {};
       [date.delta, date.time]
         = this.dateDelta.getTimeDelta(Date.now() * 1e-3);
 
-      let audio = {};
-      [audio.delta, audio.time]
-        = this.audioDelta.getTimeDelta(app.audio.context.currentTime);
+      this.display += 'Date: ' + date.time
+        + '; ∆ = ' + date.delta
+        + ' (' + (date.delta * app.audio.context.sampleRate) + ')' + '<br>';
 
-      audio.deltaSamples = audio.delta * app.audio.context.sampleRate;
-      [audio.deltaSamplesPow2, ] = app.audio.minPowerOfTwo(audio.deltaSamples);
+      const audioTime = {};
+      [audioTime.delta, audioTime.time]
+        = this.audioTimeDelta.getTimeDelta(app.audio.context.currentTime);
 
-      let frame = {};
+      audioTime.deltaSamples = audioTime.delta * app.audio.context.sampleRate;
+      [audioTime.deltaSamplesPow2, ] = app.audio.minPowerOfTwo(audioTime.deltaSamples);
+
+      this.display += 'Audio context time: ' + audioTime.time
+        + '; ∆ = ' + audioTime.delta
+        + ' (' + audioTime.deltaSamples
+        + ' -> ' + audioTime.deltaSamplesPow2 + ')' + '<br>';
+
+      if(typeof app.audio.context.baseLatency === 'undefined') {
+        document.querySelector('#base-latency')
+          .innerHTML = 'Base latency: undefined';
+      } else {
+          const latency = app.audio.context.baseLatency;
+
+        document.querySelector('#base-latency')
+          .innerHTML = 'Base latency: '
+          + latency
+          + ' s';
+
+        const audioBaseLatency = {};
+        [audioBaseLatency.delta, audioBaseLatency.time]
+          = this.audioBaseLatencyDelta.getTimeDelta(latency);
+
+        audioBaseLatency.deltaSamples = audioBaseLatency.delta * app.audio.context.sampleRate;
+        [audioBaseLatency.deltaSamplesPow2, ] = app.audio.minPowerOfTwo(audioBaseLatency.deltaSamples);
+
+        this.display += 'Audio base latency: ' + audioBaseLatency.time
+          + '; ∆ = ' + audioBaseLatency.delta
+          + ' (' + audioBaseLatency.deltaSamples
+          + ' -> ' + audioBaseLatency.deltaSamplesPow2 + ')' + '<br>';
+      }
+
+      if(typeof app.audio.context.outputLatency === 'undefined') {
+        document.querySelector('#output-latency')
+          .innerHTML = 'Output latency: undefined';
+      } else {
+        const latency = app.audio.context.outputLatency;
+
+        document.querySelector('#output-latency')
+          .innerHTML = 'Output latency: '
+          + latency
+          + ' s';
+
+        const audioOutputLatency = {};
+        [audioOutputLatency.delta, audioOutputLatency.time]
+          = this.audioOutputLatencyDelta.getTimeDelta(latency);
+
+        audioOutputLatency.deltaSamples = audioOutputLatency.delta * app.audio.context.sampleRate;
+        [audioOutputLatency.deltaSamplesPow2, ] = app.audio.minPowerOfTwo(audioOutputLatency.deltaSamples);
+
+        this.display += 'Audio output latency: ' + audioOutputLatency.time
+          + '; ∆ = ' + audioOutputLatency.delta
+          + ' (' + audioOutputLatency.deltaSamples
+          + ' -> ' + audioOutputLatency.deltaSamplesPow2 + ')' + '<br>';
+      }
+
+      if(typeof app.audio.context.getOutputTimestamp === 'function') {
+        const stamp = app.audio.context.getOutputTimestamp().contextTime;
+
+        const audioStamp = {};
+        [audioStamp.delta, audioStamp.time]
+          = this.audioStampDelta.getTimeDelta(stamp);
+
+        audioStamp.deltaSamples = audioStamp.delta * app.audio.context.sampleRate;
+        [audioStamp.deltaSamplesPow2, ] = app.audio.minPowerOfTwo(audioStamp.deltaSamples);
+
+        this.display += 'Audio time stamp: ' + audioStamp.time
+          + '; ∆ = ' + audioStamp.delta
+          + ' (' + audioStamp.deltaSamples
+          + ' -> ' + audioStamp.deltaSamplesPow2 + ')' + '<br>';
+      }
+
+      const frame = {};
       [frame.delta, frame.time]
         = this.frameDelta.getTimeDelta(frameTime * 1e-3);
       if(frame.time === 0) {
         frame.delta = 0;
       }
 
-      let perf = {};
+      this.display += 'Animation Frame: ' + frame.time
+        + '; ∆ = ' + frame.delta
+        + ' (' + (frame.delta * app.audio.context.sampleRate) + ')' + '<br>';
+
+      const perf = {};
       [perf.delta, perf.time]
         = this.perfDelta.getTimeDelta(app.clock.getPerformanceTime() );
 
-      this.display
-        += '++++++++++ ' + this.count + ' ++++++++++' + '<br>'
-        + 'Date: ' + date.time
-        + '; ∆ = ' + date.delta
-        + ' (' + (date.delta * app.audio.context.sampleRate) + ')' + '<br>'
-        + 'Audio: ' + audio.time
-        + '; ∆ = ' + audio.delta
-        + ' (' + audio.deltaSamples
-        + ' -> ' + audio.deltaSamplesPow2 + ')' + '<br>'
-        + 'Frame: ' + frame.time
-        + '; ∆ = ' + frame.delta
-        + ' (' + (frame.delta * app.audio.context.sampleRate) + ')' + '<br>'
-        + 'Perf.: ' + perf.time
+      this.display += 'Performance time: ' + perf.time
         + '; ∆ = ' + perf.delta
         + ' (' + (perf.delta * app.audio.context.sampleRate) + ')' + '<br>'
         + '<br>';

@@ -1,5 +1,5 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-
+(function (process){
 /**
  * This is the web browser implementation of `debug()`.
  *
@@ -12,17 +12,10 @@ exports.formatArgs = formatArgs;
 exports.save = save;
 exports.load = load;
 exports.useColors = useColors;
-
-/**
- * Use chrome.storage.local if we are in an app
- */
-
-var storage;
-
-if (typeof chrome !== 'undefined' && typeof chrome.storage !== 'undefined')
-  storage = chrome.storage.local;
-else
-  storage = localstorage();
+exports.storage = 'undefined' != typeof chrome
+               && 'undefined' != typeof chrome.storage
+                  ? chrome.storage.local
+                  : localstorage();
 
 /**
  * Colors.
@@ -46,13 +39,23 @@ exports.colors = [
  */
 
 function useColors() {
+  // NB: In an Electron preload script, document will be defined but not fully
+  // initialized. Since we know we're in Chrome, we'll just detect this case
+  // explicitly
+  if (typeof window !== 'undefined' && window.process && window.process.type === 'renderer') {
+    return true;
+  }
+
   // is webkit? http://stackoverflow.com/a/16459606/376773
-  return ('WebkitAppearance' in document.documentElement.style) ||
+  // document is undefined in react-native: https://github.com/facebook/react-native/pull/1632
+  return (typeof document !== 'undefined' && document.documentElement && document.documentElement.style && document.documentElement.style.WebkitAppearance) ||
     // is firebug? http://stackoverflow.com/a/398120/376773
-    (window.console && (console.firebug || (console.exception && console.table))) ||
+    (typeof window !== 'undefined' && window.console && (window.console.firebug || (window.console.exception && window.console.table))) ||
     // is firefox >= v31?
     // https://developer.mozilla.org/en-US/docs/Tools/Web_Console#Styling_messages
-    (navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/) && parseInt(RegExp.$1, 10) >= 31);
+    (typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/) && parseInt(RegExp.$1, 10) >= 31) ||
+    // double check webkit in userAgent just in case we are in a worker
+    (typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.toLowerCase().match(/applewebkit\/(\d+)/));
 }
 
 /**
@@ -60,7 +63,11 @@ function useColors() {
  */
 
 exports.formatters.j = function(v) {
-  return JSON.stringify(v);
+  try {
+    return JSON.stringify(v);
+  } catch (err) {
+    return '[UnexpectedJSONParseError]: ' + err.message;
+  }
 };
 
 
@@ -70,8 +77,7 @@ exports.formatters.j = function(v) {
  * @api public
  */
 
-function formatArgs() {
-  var args = arguments;
+function formatArgs(args) {
   var useColors = this.useColors;
 
   args[0] = (useColors ? '%c' : '')
@@ -81,17 +87,17 @@ function formatArgs() {
     + (useColors ? '%c ' : ' ')
     + '+' + exports.humanize(this.diff);
 
-  if (!useColors) return args;
+  if (!useColors) return;
 
   var c = 'color: ' + this.color;
-  args = [args[0], c, 'color: inherit'].concat(Array.prototype.slice.call(args, 1));
+  args.splice(1, 0, c, 'color: inherit')
 
   // the final "%c" is somewhat tricky, because there could be other
   // arguments passed either before or after the %c, so we need to
   // figure out the correct index to insert the CSS into
   var index = 0;
   var lastC = 0;
-  args[0].replace(/%[a-z%]/g, function(match) {
+  args[0].replace(/%[a-zA-Z%]/g, function(match) {
     if ('%%' === match) return;
     index++;
     if ('%c' === match) {
@@ -102,7 +108,6 @@ function formatArgs() {
   });
 
   args.splice(lastC, 0, c);
-  return args;
 }
 
 /**
@@ -130,9 +135,9 @@ function log() {
 function save(namespaces) {
   try {
     if (null == namespaces) {
-      storage.removeItem('debug');
+      exports.storage.removeItem('debug');
     } else {
-      storage.debug = namespaces;
+      exports.storage.debug = namespaces;
     }
   } catch(e) {}
 }
@@ -147,8 +152,14 @@ function save(namespaces) {
 function load() {
   var r;
   try {
-    r = storage.debug;
+    r = exports.storage.debug;
   } catch(e) {}
+
+  // If debug isn't set in LS, and we're in Electron, try to load $DEBUG
+  if (!r && typeof process !== 'undefined' && 'env' in process) {
+    r = process.env.DEBUG;
+  }
+
   return r;
 }
 
@@ -169,13 +180,14 @@ exports.enable(load());
  * @api private
  */
 
-function localstorage(){
+function localstorage() {
   try {
     return window.localStorage;
   } catch (e) {}
 }
 
-},{"./debug":2}],2:[function(require,module,exports){
+}).call(this,require('_process'))
+},{"./debug":2,"_process":4}],2:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -184,7 +196,7 @@ function localstorage(){
  * Expose `debug()` as the module.
  */
 
-exports = module.exports = debug;
+exports = module.exports = createDebug.debug = createDebug['default'] = createDebug;
 exports.coerce = coerce;
 exports.disable = disable;
 exports.enable = enable;
@@ -201,16 +213,10 @@ exports.skips = [];
 /**
  * Map of special "%n" handling functions, for the debug "format" argument.
  *
- * Valid key names are a single, lowercased letter, i.e. "n".
+ * Valid key names are a single, lower or upper-case letter, i.e. "n" and "N".
  */
 
 exports.formatters = {};
-
-/**
- * Previously assigned color.
- */
-
-var prevColor = 0;
 
 /**
  * Previous log timestamp.
@@ -220,13 +226,20 @@ var prevTime;
 
 /**
  * Select a color.
- *
+ * @param {String} namespace
  * @return {Number}
  * @api private
  */
 
-function selectColor() {
-  return exports.colors[prevColor++ % exports.colors.length];
+function selectColor(namespace) {
+  var hash = 0, i;
+
+  for (i in namespace) {
+    hash  = ((hash << 5) - hash) + namespace.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+
+  return exports.colors[Math.abs(hash) % exports.colors.length];
 }
 
 /**
@@ -237,17 +250,13 @@ function selectColor() {
  * @api public
  */
 
-function debug(namespace) {
+function createDebug(namespace) {
 
-  // define the `disabled` version
-  function disabled() {
-  }
-  disabled.enabled = false;
+  function debug() {
+    // disabled?
+    if (!debug.enabled) return;
 
-  // define the `enabled` version
-  function enabled() {
-
-    var self = enabled;
+    var self = debug;
 
     // set `diff` timestamp
     var curr = +new Date();
@@ -257,22 +266,22 @@ function debug(namespace) {
     self.curr = curr;
     prevTime = curr;
 
-    // add the `color` if not set
-    if (null == self.useColors) self.useColors = exports.useColors();
-    if (null == self.color && self.useColors) self.color = selectColor();
-
-    var args = Array.prototype.slice.call(arguments);
+    // turn the `arguments` into a proper Array
+    var args = new Array(arguments.length);
+    for (var i = 0; i < args.length; i++) {
+      args[i] = arguments[i];
+    }
 
     args[0] = exports.coerce(args[0]);
 
     if ('string' !== typeof args[0]) {
-      // anything else let's inspect with %o
-      args = ['%o'].concat(args);
+      // anything else let's inspect with %O
+      args.unshift('%O');
     }
 
     // apply any `formatters` transformations
     var index = 0;
-    args[0] = args[0].replace(/%([a-z%])/g, function(match, format) {
+    args[0] = args[0].replace(/%([a-zA-Z%])/g, function(match, format) {
       // if we encounter an escaped % then don't increase the array index
       if (match === '%%') return match;
       index++;
@@ -288,19 +297,24 @@ function debug(namespace) {
       return match;
     });
 
-    if ('function' === typeof exports.formatArgs) {
-      args = exports.formatArgs.apply(self, args);
-    }
-    var logFn = enabled.log || exports.log || console.log.bind(console);
+    // apply env-specific formatting (colors, etc.)
+    exports.formatArgs.call(self, args);
+
+    var logFn = debug.log || exports.log || console.log.bind(console);
     logFn.apply(self, args);
   }
-  enabled.enabled = true;
 
-  var fn = exports.enabled(namespace) ? enabled : disabled;
+  debug.namespace = namespace;
+  debug.enabled = exports.enabled(namespace);
+  debug.useColors = exports.useColors();
+  debug.color = selectColor(namespace);
 
-  fn.namespace = namespace;
+  // env-specific initialization logic for debug instances
+  if ('function' === typeof exports.init) {
+    exports.init(debug);
+  }
 
-  return fn;
+  return debug;
 }
 
 /**
@@ -314,7 +328,10 @@ function debug(namespace) {
 function enable(namespaces) {
   exports.save(namespaces);
 
-  var split = (namespaces || '').split(/[\s,]+/);
+  exports.names = [];
+  exports.skips = [];
+
+  var split = (typeof namespaces === 'string' ? namespaces : '').split(/[\s,]+/);
   var len = split.length;
 
   for (var i = 0; i < len; i++) {
@@ -393,17 +410,24 @@ var y = d * 365.25;
  *  - `long` verbose formatting [false]
  *
  * @param {String|Number} val
- * @param {Object} options
+ * @param {Object} [options]
+ * @throws {Error} throw an error if val is not a non-empty string or a number
  * @return {String|Number}
  * @api public
  */
 
-module.exports = function(val, options){
+module.exports = function(val, options) {
   options = options || {};
-  if ('string' == typeof val) return parse(val);
-  return options.long
-    ? long(val)
-    : short(val);
+  var type = typeof val;
+  if (type === 'string' && val.length > 0) {
+    return parse(val);
+  } else if (type === 'number' && isNaN(val) === false) {
+    return options.long ? fmtLong(val) : fmtShort(val);
+  }
+  throw new Error(
+    'val is not a non-empty string or a valid number. val=' +
+      JSON.stringify(val)
+  );
 };
 
 /**
@@ -415,8 +439,16 @@ module.exports = function(val, options){
  */
 
 function parse(str) {
-  var match = /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(str);
-  if (!match) return;
+  str = String(str);
+  if (str.length > 100) {
+    return;
+  }
+  var match = /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(
+    str
+  );
+  if (!match) {
+    return;
+  }
   var n = parseFloat(match[1]);
   var type = (match[2] || 'ms').toLowerCase();
   switch (type) {
@@ -454,6 +486,8 @@ function parse(str) {
     case 'msec':
     case 'ms':
       return n;
+    default:
+      return undefined;
   }
 }
 
@@ -465,11 +499,19 @@ function parse(str) {
  * @api private
  */
 
-function short(ms) {
-  if (ms >= d) return Math.round(ms / d) + 'd';
-  if (ms >= h) return Math.round(ms / h) + 'h';
-  if (ms >= m) return Math.round(ms / m) + 'm';
-  if (ms >= s) return Math.round(ms / s) + 's';
+function fmtShort(ms) {
+  if (ms >= d) {
+    return Math.round(ms / d) + 'd';
+  }
+  if (ms >= h) {
+    return Math.round(ms / h) + 'h';
+  }
+  if (ms >= m) {
+    return Math.round(ms / m) + 'm';
+  }
+  if (ms >= s) {
+    return Math.round(ms / s) + 's';
+  }
   return ms + 'ms';
 }
 
@@ -481,12 +523,12 @@ function short(ms) {
  * @api private
  */
 
-function long(ms) {
-  return plural(ms, d, 'day')
-    || plural(ms, h, 'hour')
-    || plural(ms, m, 'minute')
-    || plural(ms, s, 'second')
-    || ms + ' ms';
+function fmtLong(ms) {
+  return plural(ms, d, 'day') ||
+    plural(ms, h, 'hour') ||
+    plural(ms, m, 'minute') ||
+    plural(ms, s, 'second') ||
+    ms + ' ms';
 }
 
 /**
@@ -494,12 +536,78 @@ function long(ms) {
  */
 
 function plural(ms, n, name) {
-  if (ms < n) return;
-  if (ms < n * 1.5) return Math.floor(ms / n) + ' ' + name;
+  if (ms < n) {
+    return;
+  }
+  if (ms < n * 1.5) {
+    return Math.floor(ms / n) + ' ' + name;
+  }
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
 },{}],4:[function(require,module,exports){
+// shim for using process in browser
+
+var process = module.exports = {};
+var queue = [];
+var draining = false;
+
+function drainQueue() {
+    if (draining) {
+        return;
+    }
+    draining = true;
+    var currentQueue;
+    var len = queue.length;
+    while(len) {
+        currentQueue = queue;
+        queue = [];
+        var i = -1;
+        while (++i < len) {
+            currentQueue[i]();
+        }
+        len = queue.length;
+    }
+    draining = false;
+}
+process.nextTick = function (fun) {
+    queue.push(fun);
+    if (!draining) {
+        setTimeout(drainQueue, 0);
+    }
+};
+
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+process.version = ''; // empty string to avoid regexp issues
+process.versions = {};
+
+function noop() {}
+
+process.on = noop;
+process.addListener = noop;
+process.once = noop;
+process.off = noop;
+process.removeListener = noop;
+process.removeAllListeners = noop;
+process.emit = noop;
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+};
+
+// TODO(shtylman)
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+process.umask = function() { return 0; };
+
+},{}],5:[function(require,module,exports){
+/*global AudioContext */
+
 "use strict";
 
 var audio = {};
@@ -591,9 +699,10 @@ audio.init = function () {
 };
 
 module.exports = exports = audio;
-/*global AudioContext */
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
+/*global performance */
+
 "use strict";
 
 var _createClass = (function () { function defineProperties(target, props) { for (var key in props) { var prop = props[key]; prop.configurable = true; if (prop.value) prop.writable = true; } Object.defineProperties(target, props); } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
@@ -640,9 +749,8 @@ clock.getPerformanceTime = function () {
 };
 
 module.exports = exports = clock;
-/*global performance */
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 "use strict";
 
 var _slicedToArray = function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { var _arr = []; for (var _iterator = arr[Symbol.iterator](), _step; !(_step = _iterator.next()).done;) { _arr.push(_step.value); if (i && _arr.length === i) break; } return _arr; } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } };
@@ -665,7 +773,10 @@ app.Measure = (function () {
     this.count = 0;
     this.display = "";
     this.dateDelta = new app.clock.TimeDelta();
-    this.audioDelta = new app.clock.TimeDelta();
+    this.audioBaseLatencyDelta = new app.clock.TimeDelta();
+    this.audioOutputLatencyDelta = new app.clock.TimeDelta();
+    this.audioTimeDelta = new app.clock.TimeDelta();
+    this.audioStampDelta = new app.clock.TimeDelta();
     this.frameDelta = new app.clock.TimeDelta();
     this.perfDelta = new app.clock.TimeDelta();
   };
@@ -692,6 +803,8 @@ app.Measure = (function () {
         var frameTime = arguments[0] === undefined ? 0 : arguments[0];
 
         if (this.count-- > 0) {
+
+          this.display += "++++++++++ " + this.count + " ++++++++++" + "<br>";
           var date = {};
 
           var _ref = this.dateDelta.getTimeDelta(Date.now() * 0.001);
@@ -701,46 +814,129 @@ app.Measure = (function () {
           date.delta = _ref2[0];
           date.time = _ref2[1];
 
-          var audio = {};
+          this.display += "Date: " + date.time + "; ∆ = " + date.delta + " (" + date.delta * app.audio.context.sampleRate + ")" + "<br>";
 
-          var _ref3 = this.audioDelta.getTimeDelta(app.audio.context.currentTime);
+          var audioTime = {};
+
+          var _ref3 = this.audioTimeDelta.getTimeDelta(app.audio.context.currentTime);
 
           var _ref32 = _slicedToArray(_ref3, 2);
 
-          audio.delta = _ref32[0];
-          audio.time = _ref32[1];
+          audioTime.delta = _ref32[0];
+          audioTime.time = _ref32[1];
 
-          audio.deltaSamples = audio.delta * app.audio.context.sampleRate;
+          audioTime.deltaSamples = audioTime.delta * app.audio.context.sampleRate;
 
-          var _ref4 = app.audio.minPowerOfTwo(audio.deltaSamples);
+          var _ref4 = app.audio.minPowerOfTwo(audioTime.deltaSamples);
 
           var _ref42 = _slicedToArray(_ref4, 1);
 
-          audio.deltaSamplesPow2 = _ref42[0];
+          audioTime.deltaSamplesPow2 = _ref42[0];
+
+          this.display += "Audio context time: " + audioTime.time + "; ∆ = " + audioTime.delta + " (" + audioTime.deltaSamples + " -> " + audioTime.deltaSamplesPow2 + ")" + "<br>";
+
+          if (typeof app.audio.context.baseLatency === "undefined") {
+            document.querySelector("#base-latency").innerHTML = "Base latency: undefined";
+          } else {
+            var latency = app.audio.context.baseLatency;
+
+            document.querySelector("#base-latency").innerHTML = "Base latency: " + latency + " s";
+
+            var audioBaseLatency = {};
+
+            var _ref5 = this.audioBaseLatencyDelta.getTimeDelta(latency);
+
+            var _ref52 = _slicedToArray(_ref5, 2);
+
+            audioBaseLatency.delta = _ref52[0];
+            audioBaseLatency.time = _ref52[1];
+
+            audioBaseLatency.deltaSamples = audioBaseLatency.delta * app.audio.context.sampleRate;
+
+            var _ref6 = app.audio.minPowerOfTwo(audioBaseLatency.deltaSamples);
+
+            var _ref62 = _slicedToArray(_ref6, 1);
+
+            audioBaseLatency.deltaSamplesPow2 = _ref62[0];
+
+            this.display += "Audio base latency: " + audioBaseLatency.time + "; ∆ = " + audioBaseLatency.delta + " (" + audioBaseLatency.deltaSamples + " -> " + audioBaseLatency.deltaSamplesPow2 + ")" + "<br>";
+          }
+
+          if (typeof app.audio.context.outputLatency === "undefined") {
+            document.querySelector("#output-latency").innerHTML = "Output latency: undefined";
+          } else {
+            var latency = app.audio.context.outputLatency;
+
+            document.querySelector("#output-latency").innerHTML = "Output latency: " + latency + " s";
+
+            var audioOutputLatency = {};
+
+            var _ref7 = this.audioOutputLatencyDelta.getTimeDelta(latency);
+
+            var _ref72 = _slicedToArray(_ref7, 2);
+
+            audioOutputLatency.delta = _ref72[0];
+            audioOutputLatency.time = _ref72[1];
+
+            audioOutputLatency.deltaSamples = audioOutputLatency.delta * app.audio.context.sampleRate;
+
+            var _ref8 = app.audio.minPowerOfTwo(audioOutputLatency.deltaSamples);
+
+            var _ref82 = _slicedToArray(_ref8, 1);
+
+            audioOutputLatency.deltaSamplesPow2 = _ref82[0];
+
+            this.display += "Audio output latency: " + audioOutputLatency.time + "; ∆ = " + audioOutputLatency.delta + " (" + audioOutputLatency.deltaSamples + " -> " + audioOutputLatency.deltaSamplesPow2 + ")" + "<br>";
+          }
+
+          if (typeof app.audio.context.getOutputTimestamp === "function") {
+            var stamp = app.audio.context.getOutputTimestamp().contextTime;
+
+            var audioStamp = {};
+
+            var _ref9 = this.audioStampDelta.getTimeDelta(stamp);
+
+            var _ref92 = _slicedToArray(_ref9, 2);
+
+            audioStamp.delta = _ref92[0];
+            audioStamp.time = _ref92[1];
+
+            audioStamp.deltaSamples = audioStamp.delta * app.audio.context.sampleRate;
+
+            var _ref10 = app.audio.minPowerOfTwo(audioStamp.deltaSamples);
+
+            var _ref102 = _slicedToArray(_ref10, 1);
+
+            audioStamp.deltaSamplesPow2 = _ref102[0];
+
+            this.display += "Audio time stamp: " + audioStamp.time + "; ∆ = " + audioStamp.delta + " (" + audioStamp.deltaSamples + " -> " + audioStamp.deltaSamplesPow2 + ")" + "<br>";
+          }
 
           var frame = {};
 
-          var _ref5 = this.frameDelta.getTimeDelta(frameTime * 0.001);
+          var _ref11 = this.frameDelta.getTimeDelta(frameTime * 0.001);
 
-          var _ref52 = _slicedToArray(_ref5, 2);
+          var _ref112 = _slicedToArray(_ref11, 2);
 
-          frame.delta = _ref52[0];
-          frame.time = _ref52[1];
+          frame.delta = _ref112[0];
+          frame.time = _ref112[1];
 
           if (frame.time === 0) {
             frame.delta = 0;
           }
 
+          this.display += "Animation Frame: " + frame.time + "; ∆ = " + frame.delta + " (" + frame.delta * app.audio.context.sampleRate + ")" + "<br>";
+
           var perf = {};
 
-          var _ref6 = this.perfDelta.getTimeDelta(app.clock.getPerformanceTime());
+          var _ref12 = this.perfDelta.getTimeDelta(app.clock.getPerformanceTime());
 
-          var _ref62 = _slicedToArray(_ref6, 2);
+          var _ref122 = _slicedToArray(_ref12, 2);
 
-          perf.delta = _ref62[0];
-          perf.time = _ref62[1];
+          perf.delta = _ref122[0];
+          perf.time = _ref122[1];
 
-          this.display += "++++++++++ " + this.count + " ++++++++++" + "<br>" + "Date: " + date.time + "; ∆ = " + date.delta + " (" + date.delta * app.audio.context.sampleRate + ")" + "<br>" + "Audio: " + audio.time + "; ∆ = " + audio.delta + " (" + audio.deltaSamples + " -> " + audio.deltaSamplesPow2 + ")" + "<br>" + "Frame: " + frame.time + "; ∆ = " + frame.delta + " (" + frame.delta * app.audio.context.sampleRate + ")" + "<br>" + "Perf.: " + perf.time + "; ∆ = " + perf.delta + " (" + perf.delta * app.audio.context.sampleRate + ")" + "<br>" + "<br>";
+          this.display += "Performance time: " + perf.time + "; ∆ = " + perf.delta + " (" + perf.delta * app.audio.context.sampleRate + ")" + "<br>" + "<br>";
 
           if (this.request) {
             this.request(function (frameTime) {
@@ -809,4 +1005,4 @@ window.addEventListener("DOMContentLoaded", function () {
 
 window.app = app;
 
-},{"./audio.js":4,"./clock.js":5,"debug":1}]},{},[6]);
+},{"./audio.js":5,"./clock.js":6,"debug":1}]},{},[7]);
